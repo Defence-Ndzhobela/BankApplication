@@ -6,6 +6,47 @@
     <title>Dekago Bank | Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Base modal styling */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 25px;
+            border-radius: 10px;
+            width: 400px;
+            position: relative;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .required { color: red; }
+        .btn {
+            background-color: var(--primary, #1a4b8c);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: var(--primary-light, #2a6bc5);
+        }
+    </style>
 </head>
 <body>
 
@@ -17,7 +58,6 @@
         </div>
         <nav>
             <ul>
-
                 <li><a href="/manageAccounts">Manage Accounts</a></li>
                 <li><a class="btn btn-outline" href="/">Logout</a></li>
             </ul>
@@ -39,50 +79,52 @@
                     <p>Type: Savings</p>
                     <p>Balance: <strong>R5,000.00</strong></p>
                     <div class="account-actions">
-                        <button class="btn btn-light"><i class="fas fa-arrow-down"></i> Deposit</button>
-                        <button class="btn btn-light"><i class="fas fa-arrow-up"></i> Withdraw</button>
-                        <button class="btn btn-light"><i class="fas fa-exchange-alt"></i> Transfer</button>
+                        <button class="btn btn-light" onclick="openTransactionModal('deposit')"><i class="fas fa-arrow-down"></i> Deposit</button>
+                        <button class="btn btn-light" onclick="openTransactionModal('withdraw')"><i class="fas fa-arrow-up"></i> Withdraw</button>
                     </div>
                 </div>
-                <!-- More accounts can be added dynamically -->
             </div>
         </section>
 
-        <!-- Transactions Section -->
-        <section class="transaction-section">
-            <h2>Perform Transaction</h2>
-            <form id="transactionForm" class="transaction-form">
-                <div class="form-group">
-                    <label for="accountSelect">Select Account <span class="required">*</span></label>
-                    <select id="accountSelect" required>
-                        <option value="">Primary Savings</option>
-                    </select>
-                </div>
+        <!-- Transaction Modal -->
+        <div id="transactionModal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeTransactionModal()">&times;</span>
+                <h2 id="transactionTitle">Perform Transaction</h2>
+                <form id="transactionForm">
+                    <div class="form-group">
+                        <label for="accountSelect">Select Account <span class="required">*</span></label>
+                        <select id="accountSelect" required>
+                            <option value="primary">Primary Savings</option>
+                            <option value="primary">Business Savings</option>
+                            <option value="primary">Credit Savings</option>
+                        </select>
+                    </div>
 
-                <div class="form-group">
-                    <label for="transactionType">Transaction Type <span class="required">*</span></label>
-                    <select id="transactionType" required>
-                        <option value="">Select Type</option>
-                        <option value="deposit">Deposit</option>
-                        <option value="withdraw">Withdraw</option>
-                        <option value="transfer">Transfer</option>
-                    </select>
-                </div>
+                    <div class="form-group">
+                        <label for="amount">Amount (R) <span class="required">*</span></label>
+                        <input type="number" id="amount" min="1" required>
+                    </div>
 
-                <div class="form-group">
-                    <label for="amount">Amount (R) <span class="required">*</span></label>
-                    <input type="number" id="amount" min="1" required>
-                </div>
+                    <button type="submit" class="btn">Submit</button>
+                    <p id="transactionMessage" class="transaction-message"></p>
+                </form>
+            </div>
+        </div>
 
-                <div class="form-group" id="transferToDiv" style="display:none;">
-                    <label for="transferTo">Transfer To <span class="required">*</span></label>
-                    <input type="text" id="transferTo" placeholder="Recipient Account Name">
+        <!-- Password Modal -->
+        <div id="passwordModal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closePasswordModal()">&times;</span>
+                <h3>Confirm Withdrawal</h3>
+                <p>Please enter your password to confirm this transaction:</p>
+                <input type="password" id="passwordInput" placeholder="Enter password" style="width:100%;padding:8px;border-radius:5px;border:1px solid #ccc;margin-bottom:10px;">
+                <div style="text-align:right;">
+                    <button class="btn" onclick="confirmPassword()">Confirm</button>
                 </div>
-
-                <button type="submit" class="btn btn-primary">Submit</button>
-                <p id="transactionMessage" class="transaction-message"></p>
-            </form>
-        </section>
+                <p id="passwordMessage" style="color:red;"></p>
+            </div>
+        </div>
 
         <!-- Recent Transactions -->
         <section class="recent-transactions">
@@ -105,7 +147,6 @@
                     <td>R1,200.00</td>
                     <td>R5,000.00</td>
                 </tr>
-                <!-- Transactions added dynamically -->
                 </tbody>
             </table>
         </section>
@@ -119,25 +160,94 @@
 </footer>
 
 <script>
-    document.getElementById('transactionType').addEventListener('change', function() {
-        document.getElementById('transferToDiv').style.display =
-            this.value === 'transfer' ? 'block' : 'none';
-    });
+    let currentTransactionType = "";
+    let transactionAmount = 0;
+    const correctPassword = "1234"; // Change this password as needed
 
-    document.getElementById('transactionForm').addEventListener('submit', function(e) {
+    // Open transaction modal
+    function openTransactionModal(type) {
+        currentTransactionType = type;
+        document.getElementById("transactionModal").style.display = "block";
+        document.getElementById("transactionTitle").innerText =
+            type.charAt(0).toUpperCase() + type.slice(1);
+        document.getElementById("transactionForm").reset();
+        document.getElementById("transactionMessage").innerText = "";
+    }
+
+    // Close transaction modal
+    function closeTransactionModal() {
+        document.getElementById("transactionModal").style.display = "none";
+    }
+
+    // Open password modal
+    function openPasswordModal() {
+        document.getElementById("passwordModal").style.display = "block";
+        document.getElementById("passwordInput").value = "";
+        document.getElementById("passwordMessage").innerText = "";
+    }
+
+    // Close password modal
+    function closePasswordModal() {
+        document.getElementById("passwordModal").style.display = "none";
+    }
+
+    // Transaction form submission
+    document.getElementById("transactionForm").addEventListener("submit", function(e) {
         e.preventDefault();
-        const type = document.getElementById('transactionType').value;
-        const amount = parseFloat(document.getElementById('amount').value);
-        if (type === 'withdraw' && amount > 5000) {
-            document.getElementById('transactionMessage').innerText =
-                "Error: Overdraft not allowed!";
-            document.getElementById('transactionMessage').style.color = "red";
+        transactionAmount = parseFloat(document.getElementById("amount").value);
+        const msg = document.getElementById("transactionMessage");
+
+        if (isNaN(transactionAmount) || transactionAmount <= 0) {
+            msg.innerText = "Please enter a valid amount!";
+            msg.style.color = "red";
+            return;
+        }
+
+        if (currentTransactionType === "withdraw") {
+            // Ask for password
+            openPasswordModal();
         } else {
-            document.getElementById('transactionMessage').innerText =
-                `Success: ${type} of R${amount.toFixed(2)} completed!`;
-            document.getElementById('transactionMessage').style.color = "green";
+            // Deposit directly
+            msg.innerText = `Success: Deposit of R${transactionAmount.toFixed(2)} completed!`;
+            msg.style.color = "green";
+            setTimeout(closeTransactionModal, 1500);
         }
     });
+
+    // Confirm password in password modal
+    function confirmPassword() {
+        const enteredPassword = document.getElementById("passwordInput").value;
+        const msg = document.getElementById("transactionMessage");
+        const pwMsg = document.getElementById("passwordMessage");
+
+        if (!enteredPassword) {
+            pwMsg.innerText = "Password is required!";
+            return;
+        }
+
+        if (enteredPassword !== correctPassword) {
+            pwMsg.innerText = "Incorrect password!";
+            return;
+        }
+
+        if (transactionAmount > 5000) {
+            pwMsg.innerText = "Error: Overdraft not allowed!";
+            return;
+        }
+
+        pwMsg.innerText = "";
+        msg.innerText = `Success: Withdrawal of R${transactionAmount.toFixed(2)} completed!`;
+        msg.style.color = "green";
+
+        closePasswordModal();
+        setTimeout(closeTransactionModal, 1500);
+    }
+
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+        if (event.target === document.getElementById("transactionModal")) closeTransactionModal();
+        if (event.target === document.getElementById("passwordModal")) closePasswordModal();
+    }
 </script>
 
 </body>
