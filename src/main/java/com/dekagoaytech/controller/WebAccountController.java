@@ -1,6 +1,5 @@
 package com.dekagoaytech.controller;
 
-import com.dekagoaytech.model.*;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +30,13 @@ public class WebAccountController {
     public String showDashboard() {
         return "dashboard"; // templates/dashboard.html
     }
+
+    // Add Account page
+    @GetMapping("/manageAccounts")
+    public String showAddAccountPage() {
+        return "manageAccounts"; // templates/manageAccounts.html
+    }
+
 
     // Account creation form submission
     @PostMapping("/create-account")
